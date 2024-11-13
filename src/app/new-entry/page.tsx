@@ -72,7 +72,7 @@ export default function NewEntry() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Transaction Type */}
-        <div className="bg-white rounded-lg p-4 shadow-sm">
+        {/* <div className="bg-white rounded-lg p-4 shadow-sm">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Transaction Type
           </label>
@@ -114,7 +114,7 @@ export default function NewEntry() {
             ))}
           </div>
         </div>
-
+ */}
         {/* Product Selection */}
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -133,7 +133,7 @@ export default function NewEntry() {
             <option value="">Choose a product</option>
             {mockProducts.map((product) => (
               <option key={product.id} value={product.id}>
-                {product.name} - {product.brand} ({product.size}ml)
+                {product.name} - {product.brand} (single)
               </option>
             ))}
           </select>
