@@ -8,6 +8,14 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PlusCircle, MinusCircle, Receipt, ArrowLeft } from 'lucide-react';
+import { Printer } from 'lucide-react';
+
+interface Token {
+  tokenNumber: number;
+  tableId: number;
+  timestamp: string;
+  items: OrderItem[];
+}
 
 const TableDetailPage = () => {
   const router = useRouter();
@@ -16,6 +24,10 @@ const TableDetailPage = () => {
   const [tables, setTables] = useRecoilState(tablesState);
   const [selectedTable, setSelectedTable] = useRecoilState(selectedTableState);
   const [showBill, setShowBill] = useState(false);
+
+    const [generatedTokens, setGeneratedTokens] = useState<Token[]>([]);
+  const [lastTokenNumber, setLastTokenNumber] = useState(0);
+  const [tokenToSend, setTokenToSend] = useState<Token | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -131,6 +143,56 @@ const TableDetailPage = () => {
     router.push('/');
   };
 
+const handleGenerateToken = () => {
+  if (!selectedTable || selectedTable.orders.length === 0) return;
+
+  // Get all current orders, including duplicates
+  const currentOrders = selectedTable.orders;
+
+  // Find orders that haven't been fully tokenized
+  const unsentItems = currentOrders.filter(order => {
+    // Find how many of this item have been sent in previous tokens
+    const tokenedQuantity = generatedTokens.reduce((total, token) => {
+      const itemInToken = token.items.find(tokenItem => tokenItem.id === order.id);
+      return total + (itemInToken ? itemInToken.quantity : 0);
+    }, 0);
+
+    // If current order quantity is greater than tokenized quantity, it needs a token
+    return order.quantity > tokenedQuantity;
+  }).map(order => ({
+    ...order,
+    quantity: order.quantity - generatedTokens.reduce((total, token) => {
+      const itemInToken = token.items.find(tokenItem => tokenItem.id === order.id);
+      return total + (itemInToken ? itemInToken.quantity : 0);
+    }, 0)
+  })).filter(item => item.quantity > 0);
+
+  if (unsentItems.length === 0) return;
+
+  // Generate new token
+  const newTokenNumber = lastTokenNumber + 1;
+  const newToken: Token = {
+    tokenNumber: newTokenNumber,
+    tableId: selectedTable.tableId,
+    timestamp: new Date().toLocaleString(),
+    items: unsentItems
+  };
+
+  // Update tokens
+  setGeneratedTokens(prev => [...prev, newToken]);
+  setLastTokenNumber(newTokenNumber);
+  
+  // Simulate sending token to kitchen
+  setTokenToSend(newToken);
+
+  // Optional: Show a confirmation
+  alert(`Token ${newTokenNumber} generated for Table ${selectedTable.tableId}`);
+};
+
+  const handleCloseTokenDialog = () => {
+    setTokenToSend(null);
+  };
+
   if (!selectedTable) {
     return <div>Loading...</div>;
   }
@@ -192,7 +254,16 @@ const TableDetailPage = () => {
               </div>
             )}
           </CardContent>
-          <CardFooter>
+          <CardFooter className='flex flex-col space-y-3'>
+            <Button 
+              className="w-full"
+              onClick={handleGenerateToken}
+              disabled={selectedTable.orders.length === 0}
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Generate Token
+            </Button>
+ 
             <Button 
               className="w-full"
               onClick={handleGenerateBill}
@@ -201,7 +272,7 @@ const TableDetailPage = () => {
               <Receipt className="mr-2 h-4 w-4" />
               Generate Bill
             </Button>
-          </CardFooter>
+         </CardFooter>
         </Card>
 
         {/* Add New Items */}
@@ -264,6 +335,32 @@ const TableDetailPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handlePayment}>Process Payment</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+            <AlertDialog open={!!tokenToSend} onOpenChange={handleCloseTokenDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kitchen Token</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div>
+                <p>Token Number: {tokenToSend?.tokenNumber}</p>
+                <p>Table: {tokenToSend?.tableId}</p>
+                <p>Timestamp: {tokenToSend?.timestamp}</p>
+                <div className="mt-4">
+                  <strong>Items:</strong>
+                  {tokenToSend?.items.map(item => (
+                    <div key={item.id} className="flex justify-between">
+                      <span>{item.name}</span>
+                      <span>x{item.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={handleCloseTokenDialog}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
